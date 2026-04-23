@@ -60,7 +60,7 @@ fun AddManualScreen(onBackClick: () -> Unit) {
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
                                     )
                                 ),
                             contentAlignment = Alignment.Center
