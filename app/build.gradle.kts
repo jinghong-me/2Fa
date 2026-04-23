@@ -126,19 +126,20 @@ dependencies {
 
     // Networking
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
-    
 
-    
     // 二维码扫描
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
     implementation("androidx.camera:camera-core:1.3.0")
     implementation("androidx.camera:camera-camera2:1.3.0")
     implementation("androidx.camera:camera-lifecycle:1.3.0")
     implementation("androidx.camera:camera-view:1.3.0")
-    
+
+    // 二维码生成
+    implementation("com.google.zxing:core:3.5.2")
+
     // 数据存储
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-    
+
     // 序列化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 }

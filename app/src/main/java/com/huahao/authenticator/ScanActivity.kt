@@ -1,7 +1,6 @@
 package com.huahao.authenticator
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
 import android.os.Build
@@ -24,14 +23,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.QrCodeScanner
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -87,7 +81,7 @@ class ScanActivity : ComponentActivity() {
                 colorScheme = colorScheme,
                 typography = Typography()
             ) {
-                val activity = LocalContext.current as Activity
+                val activity = LocalContext.current as ComponentActivity
                 SideEffect {
                     try {
                         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
@@ -203,7 +197,7 @@ class ScanActivity : ComponentActivity() {
             val success = authStore.addAuthEntry(entry)
             runOnUiThread {
                 if (success) {
-                    Toast.makeText(this@ScanActivity, "添加成功: ${issuer}: ${account}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@ScanActivity, "添加成功", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(this@ScanActivity, "该验证码已存在", Toast.LENGTH_SHORT).show()
                 }
@@ -232,6 +226,7 @@ class ScanActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
     previewView: PreviewView,
@@ -240,49 +235,20 @@ fun ScanScreen(
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.QrCodeScanner,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "扫描二维码",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "扫描 Google、GitHub 等平台的二步验证二维码",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                    Text(
+                        text = "扫描二维码",
+                        fontWeight = FontWeight.Bold
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
                 )
             )
         }
@@ -310,55 +276,31 @@ fun ScanScreen(
 
                 Box(
                     modifier = Modifier
-                        .size(300.dp)
+                        .size(280.dp)
                         .border(
-                            width = 2.dp,
+                            width = 3.dp,
                             color = Color.White,
-                            shape = RoundedCornerShape(16.dp)
+                            shape = RoundedCornerShape(24.dp)
                         )
-                        .background(Color.Transparent)
                         .align(Alignment.Center)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .border(
-                                width = 4.dp,
-                                color = Color.White,
-                                shape = RoundedCornerShape(topStart = 8.dp)
-                            )
-                            .align(Alignment.TopStart)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .border(
-                                width = 4.dp,
-                                color = Color.White,
-                                shape = RoundedCornerShape(topEnd = 8.dp)
-                            )
-                            .align(Alignment.TopEnd)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .border(
-                                width = 4.dp,
-                                color = Color.White,
-                                shape = RoundedCornerShape(bottomStart = 8.dp)
-                            )
-                            .align(Alignment.BottomStart)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .border(
-                                width = 4.dp,
-                                color = Color.White,
-                                shape = RoundedCornerShape(bottomEnd = 8.dp)
-                            )
-                            .align(Alignment.BottomEnd)
-                    )
+                    listOf(
+                        Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
+                        Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
+                        Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
+                        Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
+                    ).forEach { (alignment, shape) ->
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .border(
+                                    width = 4.dp,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = shape
+                                )
+                                .align(alignment)
+                        )
+                    }
                 }
 
                 Box(
@@ -372,40 +314,31 @@ fun ScanScreen(
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(24.dp)
+                        .padding(32.dp)
                         .fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                         )
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(20.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Icon(
-                                imageVector = Icons.Filled.QrCodeScanner,
-                                contentDescription = "扫描",
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "请将二维码对准扫描框",
+                                text = "将二维码对准扫描框",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "系统将自动识别并添加验证码",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = "系统将自动识别",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
