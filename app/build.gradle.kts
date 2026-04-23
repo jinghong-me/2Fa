@@ -1,0 +1,145 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
+}
+
+android {
+    namespace = "com.huahao.authenticator"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.huahao.authenticator"
+        minSdk = 21
+        targetSdk = 34
+
+        // 1) 优先读取 Gradle property，再读取环境变量；没有时回退到默认值
+        val versionNameFromProp = (project.findProperty("VERSION_NAME") ?: System.getenv("VERSION_NAME"))?.toString()
+        val versionCodeFromProp = (project.findProperty("VERSION_CODE") ?: System.getenv("VERSION_CODE"))?.toString()
+
+        versionName = versionNameFromProp ?: "1.0.0"
+        versionCode = (versionCodeFromProp?.toIntOrNull() ?: 1)
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // ---------- 新增：从环境变量或 gradle properties 加载签名信息 ----------
+    // 优先级：ENV > project property > 本地 my-release-key.jks（便于本地测试）
+    signingConfigs {
+        create("release") {
+            val keystoreFileEnv = System.getenv("KEYSTORE_FILE")
+            val keystoreFileProp = project.findProperty("KEYSTORE_FILE")?.toString()
+            val keystoreFilePath = keystoreFileEnv ?: keystoreFileProp
+
+            var hasStoreFile = false
+            if (keystoreFilePath != null) {
+                val keystoreFile = file(keystoreFilePath)
+                if (keystoreFile.exists()) {
+                    storeFile = keystoreFile
+                    hasStoreFile = true
+                }
+            } else {
+                val localKeystore = rootProject.file("my-release-key.jks")
+                if (localKeystore.exists()) {
+                    storeFile = localKeystore
+                    hasStoreFile = true
+                }
+            }
+
+            // 只有当 storeFile 存在时，才设置其他签名属性
+            if (hasStoreFile) {
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: project.findProperty("KEYSTORE_PASSWORD")?.toString()
+                keyAlias = System.getenv("KEY_ALIAS") ?: project.findProperty("KEY_ALIAS")?.toString()
+                keyPassword = System.getenv("KEY_PASSWORD") ?: project.findProperty("KEY_PASSWORD")?.toString()
+            }
+        }
+    }
+    // ----------------------------------------------------------------------
+
+    buildTypes {
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // 只有当 release 签名配置完整时，debug 才使用相同签名
+            val releaseConfig = signingConfigs.findByName("release")
+            if (releaseConfig != null && releaseConfig.storeFile != null) {
+                signingConfig = releaseConfig
+            }
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+        freeCompilerArgs += listOf(
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+        )
+    }
+    buildFeatures {
+        compose = true
+    }
+    // 与下面的 Compose 版本保持一致
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.5"
+    }
+}
+
+// 调试用：打印当前 versionName/versionCode
+tasks.register("printVersion") {
+    doLast {
+        println("versionName = ${android.defaultConfig.versionName}")
+        println("versionCode = ${android.defaultConfig.versionCode}")
+    }
+}
+
+dependencies {
+    // 明确版本，避免 BOM 注入失败引起的问题
+    val composeUiVersion = "1.6.1"
+    val activityComposeVersion = "1.9.0"
+    val material3Version = "1.2.1"
+    val lifecycleRuntime = "2.7.0"
+    val okhttpVersion = "4.12.0"
+
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleRuntime")
+    implementation("androidx.activity:activity-compose:$activityComposeVersion")
+
+    // Compose UI / graphics / tooling (明确 artifact 名称和版本)
+    implementation("androidx.compose.ui:ui:$composeUiVersion")
+    implementation("androidx.compose.ui:ui-graphics:$composeUiVersion")
+    implementation("androidx.compose.ui:ui-tooling-preview:$composeUiVersion")
+    debugImplementation("androidx.compose.ui:ui-tooling:$composeUiVersion")
+
+    implementation("androidx.compose.material3:material3:$material3Version")
+
+    // Icons (material icons extended) — 添加以解决 Icons.Default.History / Message 等引用
+    implementation("androidx.compose.material:material-icons-extended:$composeUiVersion")
+
+    // Networking
+    implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
+    
+    // TOTP 验证码生成
+    implementation("com.google.android.apps.authenticator2:authenticator-lib:1.0.0")
+    
+    // 二维码扫描
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
+    
+    // 数据存储
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    
+    // 序列化
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+}

@@ -1,0 +1,371 @@
+package com.huahao.authenticator
+
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
+import android.os.Build
+import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import java.util.UUID
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import androidx.datastore.preferences.preferencesDataStore
+
+val ComponentActivity.dataStore by preferencesDataStore(name = "auth_store")
+
+class ScanActivity : ComponentActivity() {
+    private lateinit var cameraExecutor: ExecutorService
+    private lateinit var authStore: AuthStore
+    private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
+    private var onPermissionChanged: (() -> Unit)? = null
+    private lateinit var previewView: PreviewView
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        cameraExecutor = Executors.newSingleThreadExecutor()
+        authStore = AuthStore(dataStore)
+        previewView = PreviewView(this)
+
+        requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                Toast.makeText(this, "相机权限已授权", Toast.LENGTH_SHORT).show()
+                startCamera()
+            } else {
+                Toast.makeText(this, "请授予相机权限以扫描二维码", Toast.LENGTH_LONG).show()
+                finish()
+            }
+            onPermissionChanged?.invoke()
+        }
+
+        setContent {
+            val isDarkTheme = isSystemInDarkTheme()
+            val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
+            var permissionUpdateTrigger by remember { mutableStateOf(0) }
+
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = Typography()
+            ) {
+                val activity = LocalContext.current as Activity
+                SideEffect {
+                    try {
+                        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+                        activity.window.statusBarColor = AndroidColor.TRANSPARENT
+                        val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                        controller.isAppearanceLightStatusBars = !isDarkTheme
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            controller.isAppearanceLightNavigationBars = !isDarkTheme
+                        }
+                    } catch (_: Throwable) {}
+                }
+
+                SideEffect {
+                    onPermissionChanged = { permissionUpdateTrigger++ }
+                }
+
+                ScanScreen(
+                    previewView = previewView,
+                    onBackClick = { finish() },
+                    onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
+                )
+            }
+        }
+
+        if (allPermissionsGranted()) {
+            startCamera()
+        } else {
+            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun startCamera() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+
+        cameraProviderFuture.addListener({            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+
+            val preview = Preview.Builder()
+                .build()
+                .also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+
+            val imageAnalyzer = ImageAnalysis.Builder()
+                .build()
+                .also {
+                    it.setAnalyzer(cameraExecutor, BarcodeAnalyzer {
+                        parseBarcode(it)
+                        finish()
+                    })
+                }
+
+            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+            try {
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    this,
+                    cameraSelector,
+                    preview,
+                    imageAnalyzer
+                )
+            } catch (exc: Exception) {
+                Log.e(TAG, "Use case binding failed", exc)
+            }
+
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun parseBarcode(barcode: String) {
+        // 解析 otpauth://totp/ 格式的 URL
+        val uri = barcode.replace("otpauth://totp/", "")
+        val parts = uri.split("?")
+        val label = parts[0]
+        val params = parts[1].split("&")
+
+        var issuer = ""
+        var account = ""
+        var secret = ""
+        var algorithm = "SHA1"
+        var digits = 6
+        var period = 30
+
+        // 解析标签部分
+        if (label.contains(":")) {
+            val labelParts = label.split(":")
+            issuer = labelParts[0]
+            account = labelParts[1]
+        } else {
+            account = label
+        }
+
+        // 解析参数部分
+        params.forEach { param ->
+            val keyValue = param.split("=")
+            when (keyValue[0]) {
+                "secret" -> secret = keyValue[1]
+                "issuer" -> issuer = keyValue[1]
+                "algorithm" -> algorithm = keyValue[1]
+                "digits" -> digits = keyValue[1].toInt()
+                "period" -> period = keyValue[1].toInt()
+            }
+        }
+
+        // 创建新的验证码条目
+        val entry = AuthEntry(
+            id = UUID.randomUUID().toString(),
+            issuer = issuer,
+            account = account,
+            secret = secret,
+            algorithm = algorithm,
+            digits = digits,
+            period = period
+        )
+
+        // 保存到数据存储
+        CoroutineScope(Dispatchers.IO).launch {
+            authStore.addAuthEntry(entry)
+        }
+
+        Toast.makeText(this, "添加成功: ${issuer}: ${account}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(
+            baseContext,
+            it
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+    }
+
+    companion object {
+        private const val TAG = "ScanActivity"
+        private const val REQUEST_CODE_PERMISSIONS = 10
+        private val REQUIRED_PERMISSIONS = arrayOf(
+            android.Manifest.permission.CAMERA
+        )
+    }
+}
+
+@Composable
+fun ScanScreen(
+    previewView: PreviewView,
+    onBackClick: () -> Unit,
+    onRequestCameraPermission: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.QrCodeScanner,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "扫描二维码",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "扫描 Google、GitHub 等平台的二步验证二维码",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
+            )
+        }
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(it)
+                .fillMaxSize()
+        ) {
+            // 相机预览
+            AndroidView(
+                factory = { _ -> previewView },
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // 扫描提示
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(24.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.QrCodeScanner,
+                            contentDescription = "扫描",
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "请将二维码对准扫描框",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "系统将自动识别并添加验证码",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAnalysis.Analyzer {
+    private val options = BarcodeScannerOptions.Builder()
+        .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+        .build()
+    private val scanner = BarcodeScanning.getClient(options)
+
+    override fun analyze(imageProxy: ImageAnalysis.ImageProxy) {
+        val mediaImage = imageProxy.image
+        if (mediaImage != null) {
+            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+            scanner.process(image)
+                .addOnSuccessListener {barcodes ->
+                    for (barcode in barcodes) {
+                        val rawValue = barcode.rawValue
+                        if (rawValue != null && rawValue.startsWith("otpauth://totp/")) {
+                            onBarcodeDetected(rawValue)
+                        }
+                    }
+                }
+                .addOnFailureListener {e ->
+                    Log.e("BarcodeAnalyzer", "Error scanning barcode", e)
+                }
+                .addOnCompleteListener {
+                    imageProxy.close()
+                }
+        }
+    }
+}

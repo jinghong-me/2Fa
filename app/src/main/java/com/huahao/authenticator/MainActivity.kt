@@ -1,0 +1,460 @@
+package com.huahao.authenticator
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Color as AndroidColor
+import android.os.Build
+import android.os.Bundle
+import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import java.util.UUID
+
+val ComponentActivity.dataStore by preferencesDataStore(name = "auth_store")
+
+class MainActivity : ComponentActivity() {
+    private lateinit var authStore: AuthStore
+    private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
+    private var onPermissionChanged: (() -> Unit)? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        authStore = AuthStore(dataStore)
+
+        requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) Toast.makeText(this, "相机权限已授权", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(this, "请授予相机权限以扫描二维码", Toast.LENGTH_LONG).show()
+            onPermissionChanged?.invoke()
+        }
+
+        setContent {
+            val isDarkTheme = isSystemInDarkTheme()
+            val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
+            var permissionUpdateTrigger by remember { mutableStateOf(0) }
+
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = Typography()
+            ) {
+                val activity = LocalContext.current as Activity
+                SideEffect {
+                    try {
+                        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
+                        activity.window.statusBarColor = AndroidColor.TRANSPARENT
+                        val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
+                        controller.isAppearanceLightStatusBars = !isDarkTheme
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            controller.isAppearanceLightNavigationBars = !isDarkTheme
+                        }
+                    } catch (_: Throwable) {}
+                }
+
+                SideEffect {
+                    onPermissionChanged = { permissionUpdateTrigger++ }
+                }
+
+                MainScreen(
+                    authStore = authStore,
+                    permissionUpdateTrigger = permissionUpdateTrigger,
+                    onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun MainScreen(
+    authStore: AuthStore,
+    permissionUpdateTrigger: Int,
+    onRequestCameraPermission: () -> Unit
+) {
+    val context = LocalContext.current
+    val authEntries by authStore.authEntries.collectAsState(emptyList())
+
+    val cameraGranted by remember(permissionUpdateTrigger) {
+        derivedStateOf {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.surface,
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                )
+            )
+        ),
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Key,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "两步验证助手",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "已添加 ${authEntries.size} 个账号",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* 关于 */ }) {
+                        Icon(Icons.Outlined.Info, contentDescription = "关于")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                )
+            )
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                NavigationBarItem(
+                    selected = true,
+                    onClick = {},
+                    icon = { Icon(Icons.Filled.Home, contentDescription = "首页") },
+                    label = { Text("首页") }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { /* 设置 */ },
+                    icon = { Icon(Icons.Outlined.Settings, contentDescription = "设置") },
+                    label = { Text("设置") }
+                )
+            }
+        }
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(it)
+                .fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // 权限提示
+                if (!cameraGranted) {
+                    PermissionItem(
+                        icon = Icons.Filled.Camera,
+                        title = "相机权限",
+                        granted = cameraGranted,
+                        onClick = onRequestCameraPermission
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // 验证码列表
+                ModernCard(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.List,
+                                    contentDescription = null,
+                                    tint = Color(0xFF10B981)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "验证码列表",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "点击账号可复制验证码",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        if (authEntries.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        Icons.Outlined.AddCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(64.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        "暂无验证码",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        "点击右下角按钮添加",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                items(authEntries) {
+                                    AuthEntryItem(it)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 添加按钮
+            FloatingActionButton(
+                onClick = {
+                    if (!cameraGranted) {
+                        onRequestCameraPermission()
+                    } else {
+                        context.startActivity(Intent(context, ScanActivity::class.java))
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .size(56.dp),
+                containerColor = MaterialTheme.colorScheme.primary
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "添加",
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AuthEntryItem(entry: AuthEntry) {
+    val code = generateCode(entry)
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable {
+                // 复制验证码到剪贴板
+                android.content.ClipboardManager
+                val clipboard = LocalContext.current.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                val clip = android.content.ClipData.newPlainText("验证码", code)
+                clipboard.setPrimaryClip(clip)
+                Toast.makeText(LocalContext.current, "验证码已复制", Toast.LENGTH_SHORT).show()
+            },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF667EEA).copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Security,
+                    contentDescription = null,
+                    tint = Color(0xFF667EEA),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (entry.issuer.isNotBlank()) "${entry.issuer}: ${entry.account}" else entry.account,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "${entry.period}秒后刷新",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = code,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column {
+            content()
+        }
+    }
+}
+
+@Composable
+fun PermissionItem(
+    icon: androidx.compose.material.icons.Icons.Filled,
+    title: String,
+    granted: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (granted) Color(0xFF10B981).copy(alpha = 0.1f) else Color(0xFFEE4444).copy(alpha = 0.1f))
+            .padding(12.dp)
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (granted) Color(0xFF10B981) else Color(0xFFEE4444)
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                if (granted) "已授权" else "未授权",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (granted) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                contentDescription = "已授权",
+                tint = Color(0xFF10B981)
+            )
+        } else {
+            Button(
+                onClick = onClick,
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text("去开启")
+            }
+        }
+    }
+}
+
+fun generateCode(entry: AuthEntry): String {
+    return try {
+        val timeStep = TotpGenerator.getTimeStep(entry.period)
+        TotpGenerator.generate(entry.secret, timeStep, entry.digits, entry.algorithm)
+    } catch (e: Exception) {
+        "Error"
+    }
+}
