@@ -4,7 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.view.Window
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -54,6 +57,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            )
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
+                    android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
+
         authStore = AuthStore(authDataStore)
 
         requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -292,35 +307,12 @@ fun MainScreen(
             ) {
                 Button(
                     onClick = {
-                        if (!cameraGranted) {
-                            onRequestCameraPermission()
-                        } else {
-                            context.startActivity(Intent(context, ImportActivity::class.java))
+                        try {
+                            val intent = Intent(context, AddManualActivity::class.java)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "打开手动添加页面失败", Toast.LENGTH_SHORT).show()
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.ImportExport,
-                            contentDescription = "从 Google Authenticator 导入",
-                            modifier = Modifier.size(20.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("从 Google Authenticator 导入")
-                    }
-                }
-                Button(
-                    onClick = {
-                        val intent = Intent(context, AddManualActivity::class.java)
-                        context.startActivity(intent)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -410,7 +402,6 @@ fun MainScreen(
                     Text("• 支持 Google、GitHub、Steam 等平台的二步验证")
                     Text("• 扫描二维码添加验证码")
                     Text("• 手动输入秘钥添加验证码")
-                    Text("• 从 Google Authenticator 导入验证码")
                     Text("• 实时动态生成验证码")
                     Text("• 点击验证码复制到剪贴板")
                     Spacer(modifier = Modifier.height(16.dp))

@@ -1,6 +1,9 @@
 package com.huahao.authenticator
 
+import android.os.Build
 import android.os.Bundle
+import android.view.Window
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,6 +33,19 @@ import java.util.UUID
 class AddManualActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 设置沉浸式状态栏
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+            )
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = window.decorView.systemUiVisibility or
+                    android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
+
         setContent {
             AddManualScreen(onBackClick = { finish() })
         }
@@ -39,7 +55,14 @@ class AddManualActivity : ComponentActivity() {
 @Composable
 fun AddManualScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
-    val authStore = AuthStore((context as ComponentActivity).authDataStore)
+    
+    // 安全获取 authDataStore
+    val authStore = try {
+        AuthStore((context as ComponentActivity).authDataStore)
+    } catch (e: Exception) {
+        Toast.makeText(context, "初始化存储失败", Toast.LENGTH_SHORT).show()
+        return
+    }
 
     var issuer by remember { mutableStateOf("") }
     var account by remember { mutableStateOf("") }
@@ -60,7 +83,7 @@ fun AddManualScreen(onBackClick: () -> Unit) {
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                                     )
                                 ),
                             contentAlignment = Alignment.Center
