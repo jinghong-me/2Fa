@@ -26,8 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
-import androidx.compose.material3.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -319,10 +319,11 @@ fun AuthEntryItem(entry: AuthEntry) {
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clickable {
-                val clipboard = LocalContext.current.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val context = LocalContext.current
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 val clip = ClipData.newPlainText("验证码", code)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(LocalContext.current, "验证码已复制", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "验证码已复制", Toast.LENGTH_SHORT).show()
             },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
