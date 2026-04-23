@@ -14,17 +14,22 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
+import androidx.compose.material3.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -43,12 +48,10 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import androidx.datastore.preferences.preferencesDataStore
-
-val ComponentActivity.dataStore by preferencesDataStore(name = "auth_store")
 
 class ScanActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
@@ -60,7 +63,7 @@ class ScanActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
-        authStore = AuthStore(dataStore)
+        authStore = AuthStore(authDataStore)
         previewView = PreviewView(this)
 
         requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -118,7 +121,8 @@ class ScanActivity : ComponentActivity() {
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
-        cameraProviderFuture.addListener({            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+        cameraProviderFuture.addListener({
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
             val preview = Preview.Builder()
                 .build()
@@ -153,7 +157,6 @@ class ScanActivity : ComponentActivity() {
     }
 
     private fun parseBarcode(barcode: String) {
-        // 解析 otpauth://totp/ 格式的 URL
         val uri = barcode.replace("otpauth://totp/", "")
         val parts = uri.split("?")
         val label = parts[0]
@@ -166,7 +169,6 @@ class ScanActivity : ComponentActivity() {
         var digits = 6
         var period = 30
 
-        // 解析标签部分
         if (label.contains(":")) {
             val labelParts = label.split(":")
             issuer = labelParts[0]
@@ -175,7 +177,6 @@ class ScanActivity : ComponentActivity() {
             account = label
         }
 
-        // 解析参数部分
         params.forEach { param ->
             val keyValue = param.split("=")
             when (keyValue[0]) {
@@ -187,7 +188,6 @@ class ScanActivity : ComponentActivity() {
             }
         }
 
-        // 创建新的验证码条目
         val entry = AuthEntry(
             id = UUID.randomUUID().toString(),
             issuer = issuer,
@@ -198,7 +198,6 @@ class ScanActivity : ComponentActivity() {
             period = period
         )
 
-        // 保存到数据存储
         CoroutineScope(Dispatchers.IO).launch {
             authStore.addAuthEntry(entry)
         }
@@ -287,13 +286,11 @@ fun ScanScreen(
                 .padding(it)
                 .fillMaxSize()
         ) {
-            // 相机预览
             AndroidView(
                 factory = { _ -> previewView },
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 扫描提示
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -347,12 +344,12 @@ class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAn
         .build()
     private val scanner = BarcodeScanning.getClient(options)
 
-    override fun analyze(imageProxy: ImageAnalysis.ImageProxy) {
+    override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image
         if (mediaImage != null) {
             val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
             scanner.process(image)
-                .addOnSuccessListener {barcodes ->
+                .addOnSuccessListener { barcodes ->
                     for (barcode in barcodes) {
                         val rawValue = barcode.rawValue
                         if (rawValue != null && rawValue.startsWith("otpauth://totp/")) {
@@ -360,7 +357,7 @@ class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAn
                         }
                     }
                 }
-                .addOnFailureListener {e ->
+                .addOnFailureListener { e ->
                     Log.e("BarcodeAnalyzer", "Error scanning barcode", e)
                 }
                 .addOnCompleteListener {

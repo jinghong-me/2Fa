@@ -2,6 +2,8 @@ package com.huahao.authenticator
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,6 +17,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,12 +27,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -160,7 +165,7 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* 关于 */ }) {
+                    IconButton(onClick = { }) {
                         Icon(Icons.Outlined.Info, contentDescription = "关于")
                     }
                 },
@@ -182,7 +187,7 @@ fun MainScreen(
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* 设置 */ },
+                    onClick = { },
                     icon = { Icon(Icons.Outlined.Settings, contentDescription = "设置") },
                     label = { Text("设置") }
                 )
@@ -199,10 +204,9 @@ fun MainScreen(
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
-                // 权限提示
                 if (!cameraGranted) {
                     PermissionItem(
-                        icon = Icons.Filled.Camera,
+                        icon = Icons.Filled.CameraAlt,
                         title = "相机权限",
                         granted = cameraGranted,
                         onClick = onRequestCameraPermission
@@ -210,7 +214,6 @@ fun MainScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                // 验证码列表
                 ModernCard(
                     modifier = Modifier.weight(1f)
                 ) {
@@ -283,7 +286,6 @@ fun MainScreen(
                 }
             }
 
-            // 添加按钮
             FloatingActionButton(
                 onClick = {
                     if (!cameraGranted) {
@@ -311,16 +313,14 @@ fun MainScreen(
 @Composable
 fun AuthEntryItem(entry: AuthEntry) {
     val code = generateCode(entry)
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
             .clickable {
-                // 复制验证码到剪贴板
-                android.content.ClipboardManager
-                val clipboard = LocalContext.current.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                val clip = android.content.ClipData.newPlainText("验证码", code)
+                val clipboard = LocalContext.current.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                val clip = ClipData.newPlainText("验证码", code)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(LocalContext.current, "验证码已复制", Toast.LENGTH_SHORT).show()
             },
@@ -364,9 +364,9 @@ fun AuthEntryItem(entry: AuthEntry) {
             }
             Box(
                 modifier = Modifier
-                    .padding(12.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                    .padding(12.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -401,7 +401,7 @@ fun ModernCard(
 
 @Composable
 fun PermissionItem(
-    icon: androidx.compose.material.icons.Icons.Filled,
+    icon: ImageVector,
     title: String,
     granted: Boolean,
     onClick: () -> Unit
@@ -415,7 +415,7 @@ fun PermissionItem(
             .padding(12.dp)
     ) {
         Icon(
-            icon,
+            imageVector = icon,
             contentDescription = null,
             tint = if (granted) Color(0xFF10B981) else Color(0xFFEE4444)
         )
