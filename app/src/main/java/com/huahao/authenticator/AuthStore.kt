@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -32,6 +33,6 @@ class AuthStore(private val dataStore: DataStore<Preferences>) {
 
     suspend fun removeAuthEntry(id: String) {
         val entries = authEntries.first()
-        saveAuthEntries(entries.filter { it.id != id })
+        saveAuthEntries(entries.filter { entry -> entry.id != id })
     }
 }

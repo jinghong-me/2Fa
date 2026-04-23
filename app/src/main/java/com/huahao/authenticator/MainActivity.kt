@@ -45,7 +45,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
 
-val ComponentActivity.dataStore by preferencesDataStore(name = "auth_store")
+val ComponentActivity.authDataStore by preferencesDataStore(name = "auth_store")
 
 class MainActivity : ComponentActivity() {
     private lateinit var authStore: AuthStore
@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        authStore = AuthStore(dataStore)
+        authStore = AuthStore(authDataStore)
 
         requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) Toast.makeText(this, "相机权限已授权", Toast.LENGTH_SHORT).show()
