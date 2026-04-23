@@ -1,22 +1,22 @@
 package com.huahao.authenticator
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,9 +32,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.datastore.preferences.preferencesDataStore
-import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,9 +42,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.Executors
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ImportExport
 
 class ImportActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
@@ -54,119 +51,117 @@ class ImportActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ImportScreen(onBackClick = { finish() })
+            MaterialTheme(
+                colorScheme = lightColorScheme(),
+                typography = Typography()
+            ) {
+                ImportScreen(onBackClick = { finish() })
+            }
         }
     }
 
     @Composable
     fun ImportScreen(onBackClick: () -> Unit) {
         val context = LocalContext.current
-        val isDarkTheme = MaterialTheme.colorScheme.isDark
-        val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
 
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = Typography()
-        ) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(
-                                            brush = Brush.linearGradient(
-                                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.ImportExport,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Column {
-                                    Text(
-                                        "从 Google Authenticator 导入",
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        "扫描 Google Authenticator 的导出二维码",
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = onBackClick) {
-                                Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                        )
-                    )
-                }
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(it)
-                        .fillMaxSize()
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                    ) {
-                        AndroidView(
-                            factory = {
-                                previewView = PreviewView(it)
-                                previewView
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        )
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(32.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(300.dp)
-                                    .border(
-                                        width = 2.dp,
-                                        color = Color.White,
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                    .background(Color.Transparent)
-                            )
-                            Spacer(modifier = Modifier.height(32.dp))
-                            Box(
-                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(
-                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                                        shape = RoundedCornerShape(16.dp)
-                                    )
-                                    .padding(16.dp)
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    "请打开 Google Authenticator 应用，进入设置 -> 导出账号，然后扫描显示的二维码",
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center
+                                Icon(
+                                    imageVector = Icons.Filled.ImportExport,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
                                 )
                             }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "从 Google Authenticator 导入",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "扫描 Google Authenticator 的导出二维码",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .fillMaxSize()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                ) {
+                    AndroidView(
+                        factory = {
+                            previewView = PreviewView(it)
+                            previewView
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(300.dp)
+                                .border(
+                                    width = 2.dp,
+                                    color = Color.White,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .background(Color.Transparent)
+                        )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(16.dp)
+                        ) {
+                            Text(
+                                text = "请打开 Google Authenticator 应用，进入设置 -> 导出账号，然后扫描显示的二维码",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
@@ -182,7 +177,7 @@ class ImportActivity : ComponentActivity() {
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener(Runnable {
+        cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
@@ -202,20 +197,25 @@ class ImportActivity : ComponentActivity() {
                             return@setAnalyzer
                         }
 
-                        val image = InputImage.fromMediaImage(imageProxy.image!!, imageProxy.imageInfo.rotationDegrees)
+                        val mediaImage = imageProxy.image
+                        if (mediaImage != null) {
+                            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
 
-                        barcodeScanner.process(image)
-                            .addOnSuccessListener { barcodes ->
-                                for (barcode in barcodes) {
-                                    val rawValue = barcode.rawValue ?: continue
-                                    parseGoogleAuthExport(rawValue)
-                                    isScanned = true
+                            barcodeScanner.process(image)
+                                .addOnSuccessListener { barcodes ->
+                                    for (barcode in barcodes) {
+                                        val rawValue = barcode.rawValue ?: continue
+                                        parseGoogleAuthExport(rawValue)
+                                        isScanned = true
+                                    }
                                 }
-                            }
-                            .addOnFailureListener { e ->
-                                Log.e("ImportActivity", "Error scanning barcode", e)
-                            }
-                            .addOnCompleteListener { imageProxy.close() }
+                                .addOnFailureListener { e ->
+                                    Log.e("ImportActivity", "Error scanning barcode", e)
+                                }
+                                .addOnCompleteListener { imageProxy.close() }
+                        } else {
+                            imageProxy.close()
+                        }
                     }
                 }
 
@@ -241,7 +241,7 @@ class ImportActivity : ComponentActivity() {
             }
 
             val encodedData = data.substring("otpauth-migration://offline?data=".length)
-            val decodedData = android.util.Base64.decode(encodedData, android.util.Base64.DEFAULT)
+            android.util.Base64.decode(encodedData, android.util.Base64.DEFAULT)
 
             val mockEntries = listOf(
                 AuthEntry(

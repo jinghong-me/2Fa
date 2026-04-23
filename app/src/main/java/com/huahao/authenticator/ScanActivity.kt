@@ -19,6 +19,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -263,12 +264,12 @@ fun ScanScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                "扫描二维码",
+                                text = "扫描二维码",
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "扫描 Google、GitHub 等平台的二步验证二维码",
+                                text = "扫描 Google、GitHub 等平台的二步验证二维码",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -285,10 +286,10 @@ fun ScanScreen(
                 )
             )
         }
-    ) {
+    ) { paddingValues ->
         Box(
             modifier = Modifier
-                .padding(it)
+                .padding(paddingValues)
                 .fillMaxSize()
         ) {
             AndroidView(
@@ -296,11 +297,9 @@ fun ScanScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // 扫描框和遮罩
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
-                // 顶部遮罩
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -308,8 +307,7 @@ fun ScanScreen(
                         .background(Color.Black.copy(alpha = 0.7f))
                         .align(Alignment.TopCenter)
                 )
-                
-                // 扫描框
+
                 Box(
                     modifier = Modifier
                         .size(300.dp)
@@ -321,7 +319,6 @@ fun ScanScreen(
                         .background(Color.Transparent)
                         .align(Alignment.Center)
                 ) {
-                    // 四个角的标记
                     Box(
                         modifier = Modifier
                             .size(30.dp)
@@ -363,8 +360,7 @@ fun ScanScreen(
                             .align(Alignment.BottomEnd)
                     )
                 }
-                
-                // 底部遮罩
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -372,8 +368,7 @@ fun ScanScreen(
                         .background(Color.Black.copy(alpha = 0.7f))
                         .align(Alignment.BottomCenter)
                 )
-                
-                // 提示文本
+
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -454,6 +449,8 @@ class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAn
                 .addOnCompleteListener {
                     imageProxy.close()
                 }
+        } else {
+            imageProxy.close()
         }
     }
 }
