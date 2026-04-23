@@ -1,20 +1,13 @@
 package com.huahao.authenticator
 
 import android.Manifest
-import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color as AndroidColor
-import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,7 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,7 +54,8 @@ val ComponentActivity.authDataStore by preferencesDataStore(name = "auth_store")
 class MainActivity : ComponentActivity() {
     private lateinit var authStore: AuthStore
     private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
-    private var onPermissionChanged: (() -> Unit)? = null
+    private var permissionUpdateTrigger by mutableStateOf(0)
+    private var currentScreen by mutableStateOf("home")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,57 +64,23 @@ class MainActivity : ComponentActivity() {
         requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) Toast.makeText(this, "相机权限已授权", Toast.LENGTH_SHORT).show()
             else Toast.makeText(this, "请授予相机权限以扫描二维码", Toast.LENGTH_LONG).show()
-            onPermissionChanged?.invoke()
+            permissionUpdateTrigger++
         }
 
         setContent {
-            val isDarkTheme = isSystemInDarkTheme()
+            val isDarkTheme = MaterialTheme.colorScheme.isDark
             val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
-            var permissionUpdateTrigger by remember { mutableStateOf(0) }
-            var currentScreen by remember { mutableStateOf("home") } // home, settings, add_manual
 
             MaterialTheme(
                 colorScheme = colorScheme,
                 typography = Typography()
             ) {
-                val activity = LocalContext.current as Activity
-                SideEffect {
-                    try {
-                        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
-                        activity.window.statusBarColor = AndroidColor.TRANSPARENT
-                        val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                        controller.isAppearanceLightStatusBars = !isDarkTheme
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            controller.isAppearanceLightNavigationBars = !isDarkTheme
-                        }
-                    } catch (_: Throwable) {}
-                }
-
-                SideEffect {
-                    onPermissionChanged = { permissionUpdateTrigger++ }
-                }
-
-                when (currentScreen) {
-                    "home" -> {
-                        MainScreen(
-                            authStore = authStore,
-                            permissionUpdateTrigger = permissionUpdateTrigger,
-                            onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                            onNavigateToAddManual = { currentScreen = "add_manual" }
-                        )
-                    }
-                    "settings" -> {
-                        SettingsScreen(
-                            onBackClick = { currentScreen = "home" }
-                        )
-                    }
-                    "add_manual" -> {
-                        AddManualScreen(
-                            onBackClick = { currentScreen = "home" },
-                            onAddSuccess = { currentScreen = "home" }
-                        )
-                    }
-                }
+                MainScreen(
+                    authStore = authStore,
+                    permissionUpdateTrigger = permissionUpdateTrigger,
+                    onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                    onNavigateToAddManual = { }
+                )
             }
         }
     }
@@ -131,8 +90,7 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(
     authStore: AuthStore,
     permissionUpdateTrigger: Int,
-    onRequestCameraPermission: () -> Unit,
-    onNavigateToAddManual: () -> Unit
+    onRequestCameraPermission: () -> Unit
 ) {
     val context = LocalContext.current
     val authEntries by authStore.authEntries.collectAsState(emptyList())
@@ -163,7 +121,7 @@ fun MainScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -199,7 +157,7 @@ fun MainScreen(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                 )
             )
-
+        }
     ) {
         Box(
             modifier = Modifier
@@ -212,16 +170,59 @@ fun MainScreen(
                     .padding(16.dp)
             ) {
                 if (!cameraGranted) {
-                    PermissionItem(
-                        icon = Icons.Filled.CameraAlt,
-                        title = "相机权限",
-                        granted = cameraGranted,
-                        onClick = onRequestCameraPermission
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CameraAlt,
+                                contentDescription = null,
+                                tint = Color(0xFFEE4444)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "相机权限",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "未授权",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Button(
+                                onClick = onRequestCameraPermission,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text("去开启")
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                ModernCard(modifier = Modifier.weight(1f)) {
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -274,7 +275,7 @@ fun MainScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
-                                        "点击右下角按钮添加",
+                                        "点击下方按钮添加",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -282,15 +283,168 @@ fun MainScreen(
                             }
                         } else {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                items(authEntries) {
-                                    AuthEntryItem(
-                                        entry = it,
-                                        onDelete = {
-                                            CoroutineScope(Dispatchers.IO).launch {
-                                                authStore.removeAuthEntry(it.id)
+                                items(authEntries) { entry ->
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surface
+                                        ),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(20.dp)
+                                        ) {
+                                            val currentTime by remember {
+                                                flow { 
+                                                    while (true) {
+                                                        emit(System.currentTimeMillis() / 1000L)
+                                                        delay(1000L)
+                                                    }
+                                                }
+                                            }.collectAsState(initial = System.currentTimeMillis() / 1000L)
+
+                                            val code by remember(currentTime) {
+                                                derivedStateOf {
+                                                    try {
+                                                        val timeStep = currentTime / entry.period
+                                                        TotpGenerator.generate(entry.secret, timeStep, entry.digits, entry.algorithm)
+                                                    } catch (e: Exception) {
+                                                        "Error"
+                                                    }
+                                                }
                                             }
+
+                                            val progress by remember(currentTime) {
+                                                derivedStateOf {
+                                                    val timeStep = currentTime / entry.period
+                                                    val nextTimeStep = timeStep + 1
+                                                    val nextTime = nextTimeStep * entry.period
+                                                    val remainingTime = nextTime - currentTime
+                                                    remainingTime.toFloat() / entry.period.toFloat()
+                                                }
+                                            }
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            brush = Brush.linearGradient(
+                                                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
+                                                            )
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Security,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    if (entry.issuer.isNotBlank()) "${entry.issuer}: ${entry.account}" else entry.account,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Spacer(modifier = Modifier.weight(1f))
+                                                var showDeleteDialog by remember { mutableStateOf(false) }
+                                                IconButton(
+                                                    onClick = { showDeleteDialog = true },
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Delete,
+                                                        contentDescription = "删除",
+                                                        tint = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
+
+                                                if (showDeleteDialog) {
+                                                    AlertDialog(
+                                                        onDismissRequest = { showDeleteDialog = false },
+                                                        title = { Text("确认删除") },
+                                                        text = { Text("删除此验证码后，您可能无法登录相关账户。确定要删除吗？") },
+                                                        confirmButton = {
+                                                            TextButton(
+                                                                onClick = {
+                                                                    showDeleteDialog = false
+                                                                    CoroutineScope(Dispatchers.IO).launch {
+                                                                        authStore.removeAuthEntry(entry.id)
+                                                                    }
+                                                                }
+                                                            ) {
+                                                                Text("删除", color = MaterialTheme.colorScheme.error)
+                                                            }
+                                                        },
+                                                        dismissButton = {
+                                                            TextButton(
+                                                                onClick = {
+                                                                    showDeleteDialog = false
+                                                                }
+                                                            ) {
+                                                                Text("取消")
+                                                            }
+                                                        }
+                                                    )
+                                                }
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(
+                                                        brush = Brush.linearGradient(
+                                                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
+                                                        )
+                                                    )
+                                                    .padding(20.dp)
+                                                    .clickable {
+                                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                                        val clip = android.content.ClipData.newPlainText("验证码", code)
+                                                        clipboard.setPrimaryClip(clip)
+                                                        Toast.makeText(context, "验证码已复制", Toast.LENGTH_SHORT).show()
+                                                    },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = code,
+                                                    fontSize = 32.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White,
+                                                    letterSpacing = 4.sp
+                                                )
+                                            }
+                                            
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            
+                                            LinearProgressIndicator(
+                                                progress = progress,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(4.dp)
+                                                    .clip(RoundedCornerShape(2.dp)),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                            )
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -303,7 +457,6 @@ fun MainScreen(
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
             ) {
-                // 从 Google Authenticator 导入按钮
                 Button(
                     onClick = {
                         if (!cameraGranted) {
@@ -331,9 +484,11 @@ fun MainScreen(
                         Text("从 Google Authenticator 导入")
                     }
                 }
-                // 手动添加按钮
                 Button(
-                    onClick = onNavigateToAddManual,
+                    onClick = {
+                        val intent = Intent(context, AddManualActivity::class.java)
+                        context.startActivity(intent)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
@@ -353,7 +508,6 @@ fun MainScreen(
                         Text("手动添加验证码")
                     }
                 }
-                // 扫描添加按钮
                 Button(
                     onClick = {
                         if (!cameraGranted) {
@@ -386,7 +540,6 @@ fun MainScreen(
         }
     }
 
-    // 关于对话框
     if (showAboutDialog) {
         AlertDialog(
             onDismissRequest = { showAboutDialog = false },
@@ -459,7 +612,6 @@ fun AuthEntryItem(
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     
-    // 实时更新时间
     val currentTime by remember {
         flow { 
             while (true) {
@@ -469,7 +621,6 @@ fun AuthEntryItem(
         }
     }.collectAsState(initial = System.currentTimeMillis() / 1000L)
 
-    // 基于当前时间生成验证码
     val code by remember(currentTime) {
         derivedStateOf {
             try {
@@ -481,7 +632,6 @@ fun AuthEntryItem(
         }
     }
 
-    // 计算倒计时进度
     val progress by remember(currentTime) {
         derivedStateOf {
             val timeStep = currentTime / entry.period
@@ -507,7 +657,6 @@ fun AuthEntryItem(
                 .fillMaxWidth()
                 .padding(20.dp)
         ) {
-            // 网站和用户名 - 一行小字
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -518,7 +667,7 @@ fun AuthEntryItem(
                         .clip(CircleShape)
                         .background(
                             brush = Brush.linearGradient(
-                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -554,20 +703,19 @@ fun AuthEntryItem(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // 验证码 - 单独一行，突出显示
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .background(
                         brush = Brush.linearGradient(
-                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                         )
                     )
                     .padding(20.dp)
                     .clickable {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        val clip = ClipData.newPlainText("验证码", code)
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("验证码", code)
                         clipboard.setPrimaryClip(clip)
                         Toast.makeText(context, "验证码已复制", Toast.LENGTH_SHORT).show()
                     },
@@ -584,7 +732,6 @@ fun AuthEntryItem(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // 倒计时进度条
             LinearProgressIndicator(
                 progress = progress,
                 modifier = Modifier
@@ -726,7 +873,7 @@ fun AddManualScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                                     )
                                 ),
                             contentAlignment = Alignment.Center
@@ -770,7 +917,7 @@ fun AddManualScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            ModernCard {
+            ModernCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     if (errorMessage.isNotEmpty()) {
                         Box(
@@ -898,219 +1045,6 @@ fun AddManualScreen(
                     ) {
                         Text("添加验证码", fontSize = 16.sp)
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun SettingsScreen(
-    onBackClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-    val versionName = packageInfo.versionName
-    val versionCode = packageInfo.versionCode
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    brush = Brush.linearGradient(
-                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Settings,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                "设置",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "应用设置和信息",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
-                )
-            )
-        }
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(it)
-                .fillMaxSize()
-                .padding(16.dp)
-        ) {
-            ModernCard {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF667EEA).copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Info,
-                                contentDescription = null,
-                                tint = Color(0xFF667EEA)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "应用信息",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "版本信息和关于应用",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "应用版本",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            "$versionName ($versionCode)",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "包名",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            context.packageName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "开发者",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Text(
-                            "Huahao",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            ModernCard {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF10B981).copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Security,
-                                contentDescription = null,
-                                tint = Color(0xFF10B981)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "安全信息",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "关于应用安全的说明",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "• 验证码数据存储在本地设备上",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "• 不会上传任何数据到服务器",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "• 支持 Google、GitHub、Steam 等平台",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "• 使用标准 TOTP 协议生成验证码",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                 }
             }
         }

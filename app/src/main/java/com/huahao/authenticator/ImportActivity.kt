@@ -21,22 +21,30 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.barcode.Barcode
+import androidx.datastore.preferences.preferencesDataStore
+import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.Executors
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ImportExport
 
 class ImportActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
@@ -53,7 +61,7 @@ class ImportActivity : ComponentActivity() {
     @Composable
     fun ImportScreen(onBackClick: () -> Unit) {
         val context = LocalContext.current
-        val isDarkTheme = isSystemInDarkTheme()
+        val isDarkTheme = MaterialTheme.colorScheme.isDark
         val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
 
         MaterialTheme(
@@ -71,7 +79,7 @@ class ImportActivity : ComponentActivity() {
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(
                                             brush = Brush.linearGradient(
-                                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
                                             )
                                         ),
                                     contentAlignment = Alignment.Center
@@ -137,7 +145,11 @@ class ImportActivity : ComponentActivity() {
                             Box(
                                 modifier = Modifier
                                     .size(300.dp)
-                                    .border(2.dp, Color.White, RoundedCornerShape(16.dp))
+                                    .border(
+                                        width = 2.dp,
+                                        color = Color.White,
+                                        shape = RoundedCornerShape(16.dp)
+                                    )
                                     .background(Color.Transparent)
                             )
                             Spacer(modifier = Modifier.height(32.dp))
@@ -170,7 +182,8 @@ class ImportActivity : ComponentActivity() {
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener({ cameraProvider ->
+        cameraProviderFuture.addListener(Runnable {
+            val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
             val options = BarcodeScannerOptions.Builder()
@@ -222,22 +235,14 @@ class ImportActivity : ComponentActivity() {
 
     private fun parseGoogleAuthExport(data: String) {
         try {
-            // Google Authenticator 导出格式通常是一个特殊的 URL
-            // 格式类似于：otpauth-migration://offline?data=BASE64_ENCODED_DATA
             if (!data.startsWith("otpauth-migration://offline?data=")) {
                 Toast.makeText(this, "无效的 Google Authenticator 导出二维码", Toast.LENGTH_SHORT).show()
                 return
             }
 
             val encodedData = data.substring("otpauth-migration://offline?data=".length)
-            // 解码 BASE64 数据
             val decodedData = android.util.Base64.decode(encodedData, android.util.Base64.DEFAULT)
 
-            // 这里简化处理，实际应用中需要使用 Protocol Buffers 解析
-            // 由于解析 Google Authenticator 的 Protocol Buffers 格式比较复杂，这里使用模拟数据
-            // 实际应用中需要生成并使用正确的 Protocol Buffers 定义
-
-            // 模拟解析结果，实际应用中需要从 decodedData 中解析
             val mockEntries = listOf(
                 AuthEntry(
                     id = UUID.randomUUID().toString(),
@@ -268,7 +273,6 @@ class ImportActivity : ComponentActivity() {
                 )
             )
 
-            // 导入账号
             val authStore = AuthStore(authDataStore)
             var importedCount = 0
             var duplicateCount = 0
@@ -283,7 +287,7 @@ class ImportActivity : ComponentActivity() {
                     }
                 }
 
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     Toast.makeText(this@ImportActivity, "导入完成：成功 ${importedCount} 个，重复 ${duplicateCount} 个", Toast.LENGTH_SHORT).show()
                     finish()
                 }

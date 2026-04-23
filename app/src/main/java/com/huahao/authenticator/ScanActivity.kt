@@ -313,7 +313,11 @@ fun ScanScreen(
                 Box(
                     modifier = Modifier
                         .size(300.dp)
-                        .border(width = 2.dp, color = Color.White, shape = RoundedCornerShape(16.dp))
+                        .border(
+                            width = 2.dp,
+                            color = Color.White,
+                            shape = RoundedCornerShape(16.dp)
+                        )
                         .background(Color.Transparent)
                         .align(Alignment.Center)
                 ) {
@@ -321,25 +325,41 @@ fun ScanScreen(
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .border(width = 4.dp, color = Color.White, shape = RoundedCornerShape(topStart = 8.dp))
+                            .border(
+                                width = 4.dp,
+                                color = Color.White,
+                                shape = RoundedCornerShape(topStart = 8.dp)
+                            )
                             .align(Alignment.TopStart)
                     )
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .border(width = 4.dp, color = Color.White, shape = RoundedCornerShape(topEnd = 8.dp))
+                            .border(
+                                width = 4.dp,
+                                color = Color.White,
+                                shape = RoundedCornerShape(topEnd = 8.dp)
+                            )
                             .align(Alignment.TopEnd)
                     )
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .border(width = 4.dp, color = Color.White, shape = RoundedCornerShape(bottomStart = 8.dp))
+                            .border(
+                                width = 4.dp,
+                                color = Color.White,
+                                shape = RoundedCornerShape(bottomStart = 8.dp)
+                            )
                             .align(Alignment.BottomStart)
                     )
                     Box(
                         modifier = Modifier
                             .size(30.dp)
-                            .border(width = 4.dp, color = Color.White, shape = RoundedCornerShape(bottomEnd = 8.dp))
+                            .border(
+                                width = 4.dp,
+                                color = Color.White,
+                                shape = RoundedCornerShape(bottomEnd = 8.dp)
+                            )
                             .align(Alignment.BottomEnd)
                     )
                 }
