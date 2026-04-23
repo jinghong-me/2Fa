@@ -1,6 +1,5 @@
 package com.huahao.authenticator
 
-import android.util.Base64
 import java.security.InvalidKeyException
 import java.security.NoSuchAlgorithmException
 import javax.crypto.Mac
@@ -10,7 +9,7 @@ class TotpGenerator {
     companion object {
         @Throws(NoSuchAlgorithmException::class, InvalidKeyException::class)
         fun generate(secret: String, timeStep: Long, digits: Int, algorithm: String): String {
-            val key = Base64.decode(secret, Base64.NO_WRAP)
+            val key = decodeBase32(secret)
             val data = ByteArray(8)
             var value = timeStep
             for (i in 7 downTo 0) {
@@ -34,6 +33,27 @@ class TotpGenerator {
 
         fun getTimeStep(period: Int): Long {
             return System.currentTimeMillis() / 1000 / period
+        }
+
+        private fun decodeBase32(secret: String): ByteArray {
+            val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+            var bits = 0
+            var value = 0
+            val result = mutableListOf<Byte>()
+
+            for (c in secret.uppercase()) {
+                if (c !in alphabet) continue
+
+                value = (value shl 5) or alphabet.indexOf(c)
+                bits += 5
+
+                if (bits >= 8) {
+                    result.add(((value shr (bits - 8)) and 0xFF).toByte())
+                    bits -= 8
+                }
+            }
+
+            return result.toByteArray()
         }
     }
 }

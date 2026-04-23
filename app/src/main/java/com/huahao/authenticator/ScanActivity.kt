@@ -343,8 +343,14 @@ class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAn
         .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
         .build()
     private val scanner = BarcodeScanning.getClient(options)
+    private var isScanned = false
 
     override fun analyze(imageProxy: ImageProxy) {
+        if (isScanned) {
+            imageProxy.close()
+            return
+        }
+
         val mediaImage = imageProxy.image
         if (mediaImage != null) {
             val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
@@ -353,6 +359,7 @@ class BarcodeAnalyzer(private val onBarcodeDetected: (String) -> Unit) : ImageAn
                     for (barcode in barcodes) {
                         val rawValue = barcode.rawValue
                         if (rawValue != null && rawValue.startsWith("otpauth://totp/")) {
+                            isScanned = true
                             onBarcodeDetected(rawValue)
                         }
                     }
