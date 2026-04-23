@@ -86,9 +86,9 @@ class ScanActivity : ComponentActivity() {
                         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
                         activity.window.statusBarColor = AndroidColor.TRANSPARENT
                         val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                        controller.isAppearanceLightStatusBars = !isDarkTheme
+                        controller.isAppearanceLightStatusBars = true
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            controller.isAppearanceLightNavigationBars = !isDarkTheme
+                            controller.isAppearanceLightNavigationBars = true
                         }
                     } catch (_: Throwable) {}
                 }
