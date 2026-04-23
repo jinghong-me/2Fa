@@ -48,11 +48,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 移除沉浸式状态栏，恢复默认样式
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-            window.setFlags(
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
-            )
+            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
 
         authStore = AuthStore(authDataStore)
@@ -99,12 +97,12 @@ fun MainScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "身份验证",
+                        text = "身份验证助手",
                         fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -128,7 +126,7 @@ fun MainScreen(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             if (authEntries.isEmpty()) {
                 Box(

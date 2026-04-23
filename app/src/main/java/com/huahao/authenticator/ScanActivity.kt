@@ -265,6 +265,7 @@ fun ScanScreen(
             Box(
                 modifier = Modifier.fillMaxSize()
             ) {
+                // 顶部遮罩
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -273,6 +274,34 @@ fun ScanScreen(
                         .align(Alignment.TopCenter)
                 )
 
+                // 左侧遮罩
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.5f)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .align(Alignment.CenterStart)
+                )
+
+                // 右侧遮罩
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.5f)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .align(Alignment.CenterEnd)
+                )
+
+                // 底部遮罩
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.5f)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .align(Alignment.BottomCenter)
+                )
+
+                // 扫描框
                 Box(
                     modifier = Modifier
                         .size(280.dp)
@@ -301,14 +330,6 @@ fun ScanScreen(
                         )
                     }
                 }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.5f)
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .align(Alignment.BottomCenter)
-                )
 
                 Column(
                     modifier = Modifier
