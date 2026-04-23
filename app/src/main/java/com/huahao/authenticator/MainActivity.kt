@@ -43,7 +43,7 @@ val ComponentActivity.authDataStore by preferencesDataStore(name = "auth_store")
 class MainActivity : ComponentActivity() {
     private lateinit var authStore: AuthStore
     private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
-    private var permissionUpdateTrigger by mutable.stateOf(0)
+    private var permissionUpdateTrigger by mutableStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +89,7 @@ fun MainScreen(
     val context = LocalContext.current
     val authEntries by authStore.authEntries.collectAsState(emptyList())
 
-    var cameraGranted by remember { mutable.stateOf(false) }
+    var cameraGranted by remember { mutableStateOf(false) }
     LaunchedEffect(permissionUpdateTrigger) {
         cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
@@ -183,10 +183,10 @@ fun AuthCodeCard(
     authStore: AuthStore
 ) {
     val context = LocalContext.current
-    var showDeleteDialog by remember { mutable.stateOf(false) }
-    var showExportMenu by remember { mutable.stateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showExportMenu by remember { mutableStateOf(false) }
 
-    var currentTime by remember { mutable.longStateOf(System.currentTimeMillis() / 1000L) }
+    var currentTime by remember { mutableLongStateOf(System.currentTimeMillis() / 1000L) }
     LaunchedEffect(Unit) {
         while (true) {
             currentTime = System.currentTimeMillis() / 1000L
