@@ -33,20 +33,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectAsState
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.derivedStateOf
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -100,7 +105,6 @@ class MainActivity : ComponentActivity() {
                             authStore = authStore,
                             permissionUpdateTrigger = permissionUpdateTrigger,
                             onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
-                            onNavigateToSettings = { currentScreen = "settings" },
                             onNavigateToAddManual = { currentScreen = "add_manual" }
                         )
                     }
@@ -126,11 +130,11 @@ fun MainScreen(
     authStore: AuthStore,
     permissionUpdateTrigger: Int,
     onRequestCameraPermission: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     onNavigateToAddManual: () -> Unit
 ) {
     val context = LocalContext.current
     val authEntries by authStore.authEntries.collectAsState(emptyList())
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     val cameraGranted by remember(permissionUpdateTrigger) {
         derivedStateOf {
@@ -185,7 +189,7 @@ fun MainScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = { showAboutDialog = true }) {
                         Icon(Icons.Outlined.Info, contentDescription = "关于")
                     }
                 },
@@ -193,26 +197,7 @@ fun MainScreen(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                 )
             )
-        },
-        bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
-            ) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = { Icon(Icons.Filled.Home, contentDescription = "首页") },
-                    label = { Text("首页") }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = onNavigateToSettings,
-                    icon = { Icon(Icons.Outlined.Settings, contentDescription = "设置") },
-                    label = { Text("设置") }
-                )
-            }
-        }
+
     ) {
         Box(
             modifier = Modifier
@@ -400,6 +385,70 @@ fun MainScreen(
             }
         }
     }
+
+    // 关于对话框
+    if (showAboutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("关于身份验证助手")
+                }
+            },
+            text = {
+                Column {
+                    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+                    val versionName = packageInfo.versionName
+                    val versionCode = packageInfo.versionCode
+                    
+                    Text("版本: $versionName ($versionCode)")
+                    Text("包名: ${context.packageName}")
+                    Text("开发者: Huahao")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("功能介绍:")
+                    Text("• 支持 Google、GitHub、Steam 等平台的二步验证")
+                    Text("• 扫描二维码添加验证码")
+                    Text("• 手动输入秘钥添加验证码")
+                    Text("• 从 Google Authenticator 导入验证码")
+                    Text("• 实时动态生成验证码")
+                    Text("• 点击验证码复制到剪贴板")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("安全信息:")
+                    Text("• 验证码数据存储在本地设备上")
+                    Text("• 不会上传任何数据到服务器")
+                    Text("• 使用标准 TOTP 协议生成验证码")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showAboutDialog = false
+                    }
+                ) {
+                    Text("确定")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -407,57 +456,115 @@ fun AuthEntryItem(
     entry: AuthEntry,
     onDelete: () -> Unit
 ) {
-    val code = generateCode(entry)
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    
+    // 实时更新时间
+    val currentTime by remember {
+        flow { 
+            while (true) {
+                emit(System.currentTimeMillis() / 1000L)
+                delay(1000L)
+            }
+        }
+    }.collectAsState(initial = System.currentTimeMillis() / 1000L)
+
+    // 基于当前时间生成验证码
+    val code by remember(currentTime) {
+        derivedStateOf {
+            try {
+                val timeStep = currentTime / entry.period
+                TotpGenerator.generate(entry.secret, timeStep, entry.digits, entry.algorithm)
+            } catch (e: Exception) {
+                "Error"
+            }
+        }
+    }
+
+    // 计算倒计时进度
+    val progress by remember(currentTime) {
+        derivedStateOf {
+            val timeStep = currentTime / entry.period
+            val nextTimeStep = timeStep + 1
+            val nextTime = nextTimeStep * entry.period
+            val remainingTime = nextTime - currentTime
+            remainingTime.toFloat() / entry.period.toFloat()
+        }
+    }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(vertical = 12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(20.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF667EEA).copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
+            // 网站和用户名 - 一行小字
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Security,
-                    contentDescription = null,
-                    tint = Color(0xFF667EEA),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Security,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     if (entry.issuer.isNotBlank()) "${entry.issuer}: ${entry.account}" else entry.account,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    "${entry.period}秒后刷新",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.weight(1f))
+                IconButton(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier
+                        .size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // 验证码 - 单独一行，突出显示
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                        )
+                    )
+                    .padding(20.dp)
                     .clickable {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         val clip = ClipData.newPlainText("验证码", code)
@@ -468,25 +575,25 @@ fun AuthEntryItem(
             ) {
                 Text(
                     text = code,
-                    fontSize = 18.sp,
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color.White,
+                    letterSpacing = 4.sp
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            IconButton(
-                onClick = { showDeleteDialog = true },
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // 倒计时进度条
+            LinearProgressIndicator(
+                progress = progress,
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
         }
     }
 

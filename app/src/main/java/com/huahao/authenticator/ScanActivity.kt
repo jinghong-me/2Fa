@@ -296,46 +296,105 @@ fun ScanScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(24.dp)
-                    .fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // 扫描框和遮罩
+            Box(
+                modifier = Modifier.fillMaxSize()
             ) {
-                Card(
+                // 顶部遮罩
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                    )
+                        .fillMaxHeight(0.5f)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .align(Alignment.TopCenter)
+                )
+                
+                // 扫描框
+                Box(
+                    modifier = Modifier
+                        .size(300.dp)
+                        .border(2.dp, Color.White, RoundedCornerShape(16.dp))
+                        .background(Color.Transparent)
+                        .align(Alignment.Center)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    // 四个角的标记
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .border(4.dp, Color.White, RoundedCornerShape(topStart = 8.dp))
+                            .align(Alignment.TopStart)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .border(4.dp, Color.White, RoundedCornerShape(topEnd = 8.dp))
+                            .align(Alignment.TopEnd)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .border(4.dp, Color.White, RoundedCornerShape(bottomStart = 8.dp))
+                            .align(Alignment.BottomStart)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .border(4.dp, Color.White, RoundedCornerShape(bottomEnd = 8.dp))
+                            .align(Alignment.BottomEnd)
+                    )
+                }
+                
+                // 底部遮罩
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.5f)
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .align(Alignment.BottomCenter)
+                )
+                
+                // 提示文本
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(24.dp)
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                        )
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.QrCodeScanner,
-                            contentDescription = "扫描",
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "请将二维码对准扫描框",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "系统将自动识别并添加验证码",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.QrCodeScanner,
+                                contentDescription = "扫描",
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "请将二维码对准扫描框",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "系统将自动识别并添加验证码",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
