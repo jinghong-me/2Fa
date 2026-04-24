@@ -331,8 +331,8 @@ fun AboutDialog(onDismiss: () -> Unit) {
 fun HomeTab(
     authStore: AuthStore,
     authEntries: List<AuthEntry>,
-    cameraGranted: Boolean,
-    onRequestCameraPermission: () -> Unit
+    @Suppress("UNUSED_PARAMETER") cameraGranted: Boolean,
+    @Suppress("UNUSED_PARAMETER") onRequestCameraPermission: () -> Unit
 ) {
     if (authEntries.isEmpty()) {
         Column(

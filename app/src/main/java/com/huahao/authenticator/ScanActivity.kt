@@ -22,7 +22,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -156,7 +156,7 @@ class ScanActivity : ComponentActivity() {
         val params = parts[1].split("&")
 
         var issuer = ""
-        var account = ""
+        var account: String
         var secret = ""
         var algorithm = "SHA1"
         var digits = 6
@@ -229,7 +229,7 @@ class ScanActivity : ComponentActivity() {
 fun ScanScreen(
     previewView: PreviewView,
     onBackClick: () -> Unit,
-    onRequestCameraPermission: () -> Unit
+    @Suppress("UNUSED_PARAMETER") onRequestCameraPermission: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -242,7 +242,7 @@ fun ScanScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

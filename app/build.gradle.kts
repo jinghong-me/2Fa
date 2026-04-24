@@ -112,6 +112,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:$lifecycleRuntime")
     implementation("androidx.activity:activity-compose:$activityComposeVersion")
+    implementation("androidx.fragment:fragment-ktx:1.8.3")
 
     // Compose UI / graphics / tooling (明确 artifact 名称和版本)
     implementation("androidx.compose.ui:ui:$composeUiVersion")
