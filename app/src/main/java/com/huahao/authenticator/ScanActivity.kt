@@ -150,6 +150,56 @@ class ScanActivity : ComponentActivity() {
     }
 
     private fun parseBarcode(barcode: String) {
+        // 检查是否是 Google 迁移格式
+        if (barcode.startsWith("otpauth-migration://")) {
+            parseGoogleMigration(barcode)
+            return
+        }
+        
+        // 普通 TOTP 格式
+        parseStandardTotp(barcode)
+    }
+    
+    private fun parseGoogleMigration(barcode: String) {
+        val entries = GoogleMigrationParser.parse(barcode)
+        
+        if (entries.isEmpty()) {
+            runOnUiThread {
+                Toast.makeText(this@ScanActivity, "无法解析迁移格式", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+        
+        CoroutineScope(Dispatchers.IO).launch {
+            var addedCount = 0
+            entries.forEach { otpEntry ->
+                val entry = AuthEntry(
+                    id = UUID.randomUUID().toString(),
+                    issuer = otpEntry.issuer,
+                    account = otpEntry.name,
+                    secret = otpEntry.secret,
+                    algorithm = otpEntry.algorithm,
+                    digits = otpEntry.digits,
+                    period = otpEntry.period
+                )
+                
+                if (authStore.addAuthEntry(entry)) {
+                    addedCount++
+                }
+            }
+            
+            runOnUiThread {
+                if (addedCount > 0) {
+                    Toast.makeText(this@ScanActivity, "成功导入 $addedCount 个验证码", Toast.LENGTH_SHORT).show()
+                    finish()
+                } else {
+                    Toast.makeText(this@ScanActivity, "没有导入新的验证码（可能已存在）", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+    
+    private fun parseStandardTotp(barcode: String) {
         // 使用正确的 URL 解码方式
         val decodedBarcode = try {
             java.net.URLDecoder.decode(barcode, "UTF-8")
@@ -214,6 +264,7 @@ class ScanActivity : ComponentActivity() {
             runOnUiThread {
                 if (success) {
                     Toast.makeText(this@ScanActivity, "添加成功", Toast.LENGTH_SHORT).show()
+                    finish()
                 } else {
                     Toast.makeText(this@ScanActivity, "该验证码已存在", Toast.LENGTH_SHORT).show()
                 }
