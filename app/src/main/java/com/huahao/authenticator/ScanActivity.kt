@@ -150,9 +150,20 @@ class ScanActivity : ComponentActivity() {
     }
 
     private fun parseBarcode(barcode: String) {
-        val uri = barcode.replace("otpauth://totp/", "")
+        // 使用正确的 URL 解码方式
+        val decodedBarcode = try {
+            java.net.URLDecoder.decode(barcode, "UTF-8")
+        } catch (e: Exception) {
+            barcode
+        }
+        
+        val uri = decodedBarcode.replace("otpauth://totp/", "")
         val parts = uri.split("?")
-        val label = android.net.Uri.decode(parts[0])
+        val label = try {
+            java.net.URLDecoder.decode(parts[0], "UTF-8")
+        } catch (e: Exception) {
+            parts[0]
+        }
         val params = parts[1].split("&")
 
         var issuer = ""
@@ -173,7 +184,11 @@ class ScanActivity : ComponentActivity() {
         params.forEach { param ->
             val keyValue = param.split("=")
             if (keyValue.size >= 2) {
-                val value = android.net.Uri.decode(keyValue[1])
+                val value = try {
+                    java.net.URLDecoder.decode(keyValue[1], "UTF-8")
+                } catch (e: Exception) {
+                    keyValue[1]
+                }
                 when (keyValue[0]) {
                     "secret" -> secret = value
                     "issuer" -> issuer = value
