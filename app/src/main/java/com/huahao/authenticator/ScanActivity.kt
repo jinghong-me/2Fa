@@ -2,8 +2,6 @@ package com.huahao.authenticator
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Color as AndroidColor
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -17,7 +15,6 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,8 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -80,19 +75,6 @@ class ScanActivity : ComponentActivity() {
                 colorScheme = colorScheme,
                 typography = Typography()
             ) {
-                val activity = LocalContext.current as ComponentActivity
-                SideEffect {
-                    try {
-                        WindowCompat.setDecorFitsSystemWindows(activity.window, false)
-                        activity.window.statusBarColor = AndroidColor.TRANSPARENT
-                        val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                        controller.isAppearanceLightStatusBars = true
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            controller.isAppearanceLightNavigationBars = true
-                        }
-                    } catch (_: Throwable) {}
-                }
-
                 SideEffect {
                     onPermissionChanged = { permissionUpdateTrigger++ }
                 }
@@ -245,78 +227,42 @@ fun ScanScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                }
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
-            AndroidView(
-                factory = { _ -> previewView },
-                modifier = Modifier.fillMaxSize()
-            )
-
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f)
             ) {
-                // 顶部遮罩
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.5f)
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .align(Alignment.TopCenter)
+                AndroidView(
+                    factory = { _ -> previewView },
+                    modifier = Modifier.fillMaxSize()
                 )
 
-                // 左侧遮罩
-                Box(
+                Column(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.5f)
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .align(Alignment.CenterStart)
-                )
-
-                // 右侧遮罩
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.5f)
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .align(Alignment.CenterEnd)
-                )
-
-                // 底部遮罩
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.5f)
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .align(Alignment.BottomCenter)
-                )
-
-                // 扫描框
-                Box(
-                    modifier = Modifier
-                        .size(280.dp)
-                        .border(
-                            width = 3.dp,
-                            color = Color.White,
-                            shape = RoundedCornerShape(24.dp)
-                        )
                         .align(Alignment.Center)
                 ) {
-                    listOf(
-                        Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
-                        Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
-                        Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
-                        Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(280.dp)
+                            .border(
+                                width = 3.dp,
+                                color = Color.White,
+                                shape = RoundedCornerShape(24.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        listOf(
+                            Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
+                            Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
+                            Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
+                            Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
                     ).forEach { (alignment, shape) ->
                         Box(
                             modifier = Modifier
@@ -330,40 +276,28 @@ fun ScanScreen(
                         )
                     }
                 }
+            }
 
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(32.dp)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "将二维码对准扫描框",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "系统将自动识别",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "将二维码对准扫描框",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "系统将自动识别",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
