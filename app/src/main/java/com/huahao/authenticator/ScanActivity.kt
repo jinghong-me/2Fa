@@ -152,7 +152,7 @@ class ScanActivity : ComponentActivity() {
     private fun parseBarcode(barcode: String) {
         val uri = barcode.replace("otpauth://totp/", "")
         val parts = uri.split("?")
-        val label = parts[0]
+        val label = android.net.Uri.decode(parts[0])
         val params = parts[1].split("&")
 
         var issuer = ""
@@ -172,12 +172,15 @@ class ScanActivity : ComponentActivity() {
 
         params.forEach { param ->
             val keyValue = param.split("=")
-            when (keyValue[0]) {
-                "secret" -> secret = keyValue[1]
-                "issuer" -> issuer = keyValue[1]
-                "algorithm" -> algorithm = keyValue[1]
-                "digits" -> digits = keyValue[1].toInt()
-                "period" -> period = keyValue[1].toInt()
+            if (keyValue.size >= 2) {
+                val value = android.net.Uri.decode(keyValue[1])
+                when (keyValue[0]) {
+                    "secret" -> secret = value
+                    "issuer" -> issuer = value
+                    "algorithm" -> algorithm = value
+                    "digits" -> digits = value.toInt()
+                    "period" -> period = value.toInt()
+                }
             }
         }
 

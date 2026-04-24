@@ -38,13 +38,28 @@ object QRCodeGenerator {
             entry.account
         }
 
-        val params = listOf(
-            "secret" to entry.secret,
-            "algorithm" to entry.algorithm,
-            "digits" to entry.digits.toString(),
-            "period" to entry.period.toString()
-        ).joinToString("&") { (k, v) -> "$k=$v" }
+        val params = mutableListOf("secret" to entry.secret)
+        
+        // 添加 issuer 参数，这是标准格式中重要的部分
+        if (entry.issuer.isNotBlank()) {
+            params.add("issuer" to entry.issuer)
+        }
+        
+        // 只有当不是默认值时才添加这些参数
+        if (entry.algorithm != "SHA1") {
+            params.add("algorithm" to entry.algorithm)
+        }
+        if (entry.digits != 6) {
+            params.add("digits" to entry.digits.toString())
+        }
+        if (entry.period != 30) {
+            params.add("period" to entry.period.toString())
+        }
 
-        return "otpauth://totp/${java.net.URLEncoder.encode(label, "UTF-8")}?$params"
+        val paramString = params.joinToString("&") { (k, v) -> "$k=$v" }
+        
+        // 使用正确的 URL 编码方式
+        val encodedLabel = android.net.Uri.encode(label)
+        return "otpauth://totp/$encodedLabel?$paramString"
     }
 }
