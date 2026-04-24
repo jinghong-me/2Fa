@@ -13,19 +13,24 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -47,7 +52,7 @@ val ComponentActivity.authDataStore by preferencesDataStore(name = "auth_store")
 class MainActivity : ComponentActivity() {
     private lateinit var authStore: AuthStore
     private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
-    private var permissionUpdateTrigger by mutableStateOf(0)
+    private var onPermissionChanged: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,12 +62,15 @@ class MainActivity : ComponentActivity() {
         requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 Toast.makeText(this, "相机权限已授权", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "请授予相机权限以扫描二维码", Toast.LENGTH_LONG).show()
             }
-            permissionUpdateTrigger++
+            onPermissionChanged?.invoke()
         }
 
         setContent {
-            val colorScheme = lightColorScheme()
+            val isDarkTheme = isSystemInDarkTheme()
+            val colorScheme = if (isDarkTheme) darkColorScheme() else lightColorScheme()
             var permissionUpdateTrigger by remember { mutableStateOf(0) }
 
             MaterialTheme(
@@ -75,14 +83,18 @@ class MainActivity : ComponentActivity() {
                         WindowCompat.setDecorFitsSystemWindows(activity.window, false)
                         activity.window.statusBarColor = AndroidColor.TRANSPARENT
                         val controller = WindowInsetsControllerCompat(activity.window, activity.window.decorView)
-                        controller.isAppearanceLightStatusBars = true
+                        controller.isAppearanceLightStatusBars = !isDarkTheme
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            controller.isAppearanceLightNavigationBars = true
+                            controller.isAppearanceLightNavigationBars = !isDarkTheme
                         }
                     } catch (_: Throwable) {}
                 }
 
-                MainScreen(
+                SideEffect {
+                    onPermissionChanged = { permissionUpdateTrigger++ }
+                }
+
+                AuthenticatorApp(
                     authStore = authStore,
                     permissionUpdateTrigger = permissionUpdateTrigger,
                     onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
@@ -94,47 +106,129 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
+fun AuthenticatorApp(
     authStore: AuthStore,
     permissionUpdateTrigger: Int,
     onRequestCameraPermission: () -> Unit
 ) {
     val context = LocalContext.current
     val authEntries by authStore.authEntries.collectAsState(emptyList())
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var currentTab by remember { mutableStateOf(0) }
 
-    var cameraGranted by remember { mutableStateOf(false) }
-    LaunchedEffect(permissionUpdateTrigger) {
-        cameraGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    val tabs = listOf(
+        "首页" to Icons.Default.Home,
+        "设置" to Icons.Default.Settings
+    )
+
+    val cameraGranted by remember(permissionUpdateTrigger) {
+        derivedStateOf {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     Scaffold(
+        modifier = Modifier.background(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    MaterialTheme.colorScheme.surface,
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                )
+            )
+        ),
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "身份验证助手",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Security,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                "身份验证助手",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "已添加 ${authEntries.size} 个账号",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showAboutDialog = true }) {
+                        Icon(Icons.Outlined.Info, contentDescription = "关于")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
                 )
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    if (!cameraGranted) {
-                        onRequestCameraPermission()
-                    } else {
-                        context.startActivity(Intent(context, ScanActivity::class.java))
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
             ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = "扫描")
+                tabs.forEachIndexed { index, (label, icon) ->
+                    NavigationBarItem(
+                        selected = currentTab == index,
+                        onClick = { currentTab = index },
+                        icon = {
+                            val filledIcon = when (index) {
+                                0 -> Icons.Filled.Home
+                                1 -> Icons.Filled.Settings
+                                else -> Icons.Filled.Home
+                            }
+                            val outlinedIcon = when (index) {
+                                0 -> Icons.Outlined.Home
+                                1 -> Icons.Outlined.Settings
+                                else -> Icons.Outlined.Home
+                            }
+                            Icon(
+                                if (currentTab == index) filledIcon else outlinedIcon,
+                                contentDescription = label
+                            )
+                        },
+                        label = { Text(label) }
+                    )
+                }
+            }
+        },
+        floatingActionButton = {
+            if (currentTab == 0) {
+                FloatingActionButton(
+                    onClick = {
+                        if (!cameraGranted) {
+                            onRequestCameraPermission()
+                        } else {
+                            context.startActivity(Intent(context, ScanActivity::class.java))
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                ) {
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "扫描")
+                }
             }
         }
     ) {
@@ -142,70 +236,166 @@ fun MainScreen(
             modifier = Modifier
                 .padding(it)
                 .fillMaxSize()
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primaryContainer
-                        )
-                    )
-                )
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
+            when (currentTab) {
+                0 -> HomeTab(
+                    authStore = authStore,
+                    authEntries = authEntries,
+                    cameraGranted = cameraGranted,
+                    onRequestCameraPermission = onRequestCameraPermission
+                )
+                1 -> SettingsTab()
+            }
+        }
+    }
+
+    if (showAboutDialog) {
+        ModernAlertDialog(
+            onDismissRequest = { showAboutDialog = false },
+            title = "关于",
+            content = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("身份验证助手")
+                    Text("版本: 1.0.0")
+                    Text("包名: com.huahao.authenticator")
+                    Text("开发者: Huahao")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("功能介绍:")
+                    Text("• 支持 Google、GitHub、Steam 等平台的二步验证")
+                    Text("• 扫描二维码添加验证码")
+                    Text("• 实时动态生成验证码")
+                    Text("• 点击验证码复制到剪贴板")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("安全信息:")
+                    Text("• 验证码数据存储在本地设备上")
+                    Text("• 不会上传任何数据到服务器")
+                    Text("• 使用标准 TOTP 协议生成验证码")
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAboutDialog = false },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("确定")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun HomeTab(
+    authStore: AuthStore,
+    authEntries: List<AuthEntry>,
+    cameraGranted: Boolean,
+    onRequestCameraPermission: () -> Unit
+) {
+    if (authEntries.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    )
+                    .wrapContentSize(Alignment.Center)
             ) {
-                if (authEntries.isEmpty()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                                )
-                                .wrapContentSize(Alignment.Center)
-                        ) {
-                            Icon(
-                                Icons.Default.Security,
-                                contentDescription = null,
-                                modifier = Modifier.size(60.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Text(
-                            text = "暂无验证码",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "点击右下角按钮扫描二维码添加",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
-                            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(authEntries) {
-                            AuthCodeCard(entry = it, authStore = authStore)
-                        }
-                    }
+                Icon(
+                    Icons.Default.Security,
+                    contentDescription = null,
+                    modifier = Modifier.size(60.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
+            Text(
+                text = "暂无验证码",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "点击右下角按钮扫描二维码添加",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
+        ) {
+            items(authEntries) {
+                AuthCodeCard(entry = it, authStore = authStore)
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsTab() {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+    ) {
+        item {
+            ModernCard {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "关于应用",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("身份验证助手 v1.0.0")
+                    Text("包名: com.huahao.authenticator")
+                    Text("开发者: Huahao")
+                }
+            }
+        }
+        item {
+            ModernCard {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "功能介绍",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("• 支持 Google、GitHub、Steam 等平台的二步验证")
+                    Text("• 扫描二维码添加验证码")
+                    Text("• 实时动态生成验证码")
+                    Text("• 点击验证码复制到剪贴板")
+                }
+            }
+        }
+        item {
+            ModernCard {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        "安全信息",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("• 验证码数据存储在本地设备上")
+                    Text("• 不会上传任何数据到服务器")
+                    Text("• 使用标准 TOTP 协议生成验证码")
                 }
             }
         }
@@ -246,7 +436,7 @@ fun AuthCodeCard(
         remainingTime.toFloat() / entry.period.toFloat()
     }
 
-    Card(
+    ModernCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
@@ -254,12 +444,7 @@ fun AuthCodeCard(
                 val clip = android.content.ClipData.newPlainText("验证码", code)
                 clipboard.setPrimaryClip(clip)
                 Toast.makeText(context, "已复制", Toast.LENGTH_SHORT).show()
-            },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(4.dp)
+            }
     ) {
         Column(
             modifier = Modifier
@@ -375,18 +560,19 @@ fun AuthCodeCard(
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
+        ModernAlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除确认") },
-            text = { Text("确定要删除这个验证码吗？") },
+            title = "删除确认",
+            content = { Text("确定要删除这个验证码吗？") },
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showDeleteDialog = false
                         CoroutineScope(Dispatchers.IO).launch {
                             authStore.removeAuthEntry(entry.id)
                         }
-                    }
+                    },
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("删除", color = MaterialTheme.colorScheme.error)
                 }
@@ -398,6 +584,41 @@ fun AuthCodeCard(
             }
         )
     }
+}
+
+@Composable
+fun ModernCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun ModernAlertDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    content: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: (@Composable () -> Unit)? = null
+) {
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(title) },
+        text = content,
+        confirmButton = confirmButton,
+        dismissButton = dismissButton,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 private fun formatCode(code: String): String {
