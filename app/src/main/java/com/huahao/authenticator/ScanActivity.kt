@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -109,8 +108,8 @@ class ScanActivity : ComponentActivity() {
             val imageAnalyzer = ImageAnalysis.Builder()
                 .build()
                 .also {
-                    it.setAnalyzer(cameraExecutor, BarcodeAnalyzer {
-                        parseBarcode(it)
+                    it.setAnalyzer(cameraExecutor, BarcodeAnalyzer { barcode ->
+                        parseBarcode(barcode)
                         finish()
                     })
                 }
@@ -245,8 +244,7 @@ fun ScanScreen(
                 )
 
                 Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center)
                 ) {
                     Box(
                         modifier = Modifier
@@ -258,22 +256,24 @@ fun ScanScreen(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        listOf(
+                        val cornerShapes = listOf(
                             Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
                             Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
                             Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
                             Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
-                    ).forEach { (alignment, shape) ->
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .border(
-                                    width = 4.dp,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    shape = shape
-                                )
-                                .align(alignment)
                         )
+                        cornerShapes.forEach { (alignment, shape) ->
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .border(
+                                        width = 4.dp,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        shape = shape
+                                    )
+                                    .align(alignment)
+                            )
+                        }
                     }
                 }
             }
