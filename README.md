@@ -25,9 +25,9 @@
 
 ## 下载
 
-从 [Releases](https://github.com/jinghong-me/2Fa/releases) 页面下载最新 APK。
+从 [Releases](https://github.com/huahaotech/2Fa/releases) 页面下载最新 APK。
 
-**最新版本：v1.0.5**
+**最新版本：v1.0.6**
 
 ## 项目结构
 
@@ -69,9 +69,9 @@ MIT License
 
 ## 相关链接
 
-- [官方网站](https://github.com/jinghong-me/2Fa)
-- [问题反馈](https://github.com/jinghong-me/2Fa/issues)
-- [版本历史](https://github.com/jinghong-me/2Fa/releases)
+- [官方网站](https://2fa.smsforwarder.cn/)
+- [问题反馈](https://github.com/huahaotech/2Fa/issues)
+- [版本历史](https://github.com/huahaotech/2Fa/releases)
 
 ---
 
