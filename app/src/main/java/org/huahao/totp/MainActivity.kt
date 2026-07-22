@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
@@ -35,7 +36,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -399,6 +404,7 @@ fun AuthCodeCard(
 ) {
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     var showExportMenu by remember { mutableStateOf(false) }
 
     var currentTime by remember { mutableLongStateOf(System.currentTimeMillis() / 1000L) }
@@ -497,6 +503,16 @@ fun AuthCodeCard(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("编辑") },
+                            onClick = {
+                                showExportMenu = false
+                                showEditDialog = true
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Edit, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("删除") },
                             onClick = {
                                 showExportMenu = false
@@ -574,6 +590,80 @@ fun AuthCodeCard(
             }
         )
     }
+
+    if (showEditDialog) {
+        EditEntryDialog(
+            entry = entry,
+            onDismiss = { showEditDialog = false },
+            onSave = { updated ->
+                showEditDialog = false
+                CoroutineScope(Dispatchers.IO).launch {
+                    authStore.updateAuthEntry(updated)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun EditEntryDialog(
+    entry: AuthEntry,
+    onDismiss: () -> Unit,
+    onSave: (AuthEntry) -> Unit
+) {
+    var issuer by remember { mutableStateOf(entry.issuer) }
+    var account by remember { mutableStateOf(entry.account) }
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑验证码", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "仅可修改平台名称和账号，密钥不可更改",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = issuer,
+                    onValueChange = { issuer = it },
+                    label = { Text("平台名称") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Next
+                    )
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = account,
+                    onValueChange = { account = it },
+                    label = { Text("账号") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = ImeAction.Done
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    keyboard?.hide()
+                    onSave(entry.copy(issuer = issuer.trim(), account = account.trim()))
+                },
+                shape = RoundedCornerShape(12.dp)
+            ) { Text("保存") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable
