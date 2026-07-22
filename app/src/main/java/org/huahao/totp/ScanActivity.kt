@@ -2,8 +2,10 @@ package org.huahao.totp
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color as AndroidColor
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,6 +55,8 @@ class ScanActivity : ComponentActivity() {
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var authStore: AuthStore
     private lateinit var requestCameraPermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var requestStoragePermissionLauncher: ActivityResultLauncher<String>
+    private lateinit var pickImageLauncher: ActivityResultLauncher<Intent>
     private var onPermissionChanged: (() -> Unit)? = null
     private lateinit var previewView: PreviewView
 
@@ -70,6 +75,23 @@ class ScanActivity : ComponentActivity() {
                 finish()
             }
             onPermissionChanged?.invoke()
+        }
+
+        requestStoragePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                openGallery()
+            } else {
+                Toast.makeText(this, "请授予相册权限以选择图片", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri = result.data?.data
+                if (uri != null) {
+                    scanImageFromUri(uri)
+                }
+            }
         }
 
         setContent {
@@ -100,7 +122,8 @@ class ScanActivity : ComponentActivity() {
                 ScanScreen(
                     previewView = previewView,
                     onBackClick = { finish() },
-                    onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) }
+                    onRequestCameraPermission = { requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA) },
+                    onPickImage = { handlePickImage() }
                 )
             }
         }
@@ -159,6 +182,63 @@ class ScanActivity : ComponentActivity() {
         
         // 普通 TOTP 格式
         parseStandardTotp(barcode)
+    }
+
+    private fun handlePickImage() {
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            android.Manifest.permission.READ_MEDIA_IMAGES
+        } else {
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+        
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            openGallery()
+        } else {
+            requestStoragePermissionLauncher.launch(permission)
+        }
+    }
+
+    private fun openGallery() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        pickImageLauncher.launch(intent)
+    }
+
+    private fun scanImageFromUri(uri: Uri) {
+        try {
+            val image = InputImage.fromFilePath(this, uri)
+            val options = BarcodeScannerOptions.Builder()
+                .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+                .build()
+            val scanner = BarcodeScanning.getClient(options)
+            
+            scanner.process(image)
+                .addOnSuccessListener { barcodes ->
+                    if (barcodes.isEmpty()) {
+                        Toast.makeText(this, "未识别到二维码", Toast.LENGTH_SHORT).show()
+                        return@addOnSuccessListener
+                    }
+                    
+                    for (barcode in barcodes) {
+                        val rawValue = barcode.rawValue
+                        if (rawValue != null && (rawValue.startsWith("otpauth://totp/") || rawValue.startsWith("otpauth-migration://"))) {
+                            parseBarcode(rawValue)
+                            return@addOnSuccessListener
+                        }
+                    }
+                    
+                    Toast.makeText(this, "未识别到有效的验证码二维码", Toast.LENGTH_SHORT).show()
+                }
+                .addOnFailureListener { e ->
+                    Log.e(TAG, "Error scanning image", e)
+                    Toast.makeText(this, "识别失败：${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reading image", e)
+            Toast.makeText(this, "读取图片失败", Toast.LENGTH_SHORT).show()
+        }
     }
     
     private fun parseGoogleMigration(barcode: String) {
@@ -299,7 +379,8 @@ class ScanActivity : ComponentActivity() {
 fun ScanScreen(
     previewView: PreviewView,
     onBackClick: () -> Unit,
-    @Suppress("UNUSED_PARAMETER") onRequestCameraPermission: () -> Unit
+    @Suppress("UNUSED_PARAMETER") onRequestCameraPermission: () -> Unit,
+    onPickImage: () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.background(Color.Black),
@@ -367,6 +448,26 @@ fun ScanScreen(
                         color = Color.White.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center
                     )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    OutlinedButton(
+                        onClick = onPickImage,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            Icons.Filled.Image,
+                            contentDescription = "相册",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从相册选择")
+                    }
                 }
             }
         }
