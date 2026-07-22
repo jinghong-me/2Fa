@@ -21,8 +21,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
@@ -167,7 +170,7 @@ fun AuthenticatorApp(
                 },
                 actions = {
                     IconButton(onClick = { showAboutDialog = true }) {
-                        Icon(Icons.Outlined.Info, contentDescription = "关于")
+                        Icon(Icons.Filled.Info, contentDescription = "关于")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -188,7 +191,7 @@ fun AuthenticatorApp(
                 contentColor = Color.White,
                 elevation = FloatingActionButtonDefaults.elevation(8.dp)
             ) {
-                Icon(Icons.Default.QrCodeScanner, contentDescription = "扫描")
+                Icon(Icons.Filled.QrCode, contentDescription = "扫描")
             }
         }
     ) {
@@ -352,7 +355,7 @@ fun HomeTab(
                     .wrapContentSize(Alignment.Center)
             ) {
                 Icon(
-                    Icons.Default.Security,
+                    Icons.Filled.Security,
                     contentDescription = null,
                     modifier = Modifier.size(60.dp),
                     tint = MaterialTheme.colorScheme.primary
@@ -468,7 +471,7 @@ fun AuthCodeCard(
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            Icons.Default.MoreVert,
+                            Icons.Filled.MoreVert,
                             contentDescription = "更多",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
@@ -490,7 +493,7 @@ fun AuthCodeCard(
                                 context.startActivity(intent)
                             },
                             leadingIcon = {
-                                Icon(Icons.Default.QrCode, contentDescription = null)
+                                Icon(Icons.Filled.QrCode, contentDescription = null)
                             }
                         )
                         DropdownMenuItem(
@@ -501,7 +504,7 @@ fun AuthCodeCard(
                             },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Default.Delete,
+                                    Icons.Filled.Delete,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.error
                                 )

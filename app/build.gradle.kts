@@ -142,7 +142,7 @@ dependencies {
 
     implementation("androidx.compose.material3:material3:$material3Version")
 
-    // Icons (material icons extended) — 添加以解决 Icons.Default.History / Message 等引用
+    // Icons (material icons extended) — R8 会自动剥离未使用的图标
     implementation("androidx.compose.material:material-icons-extended:$composeUiVersion")
 
     // 二维码扫描

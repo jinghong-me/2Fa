@@ -1,17 +1,15 @@
 # ProGuard 规则文件 - 两步验证应用
 
-# 保留我们自己的数据模型类
--keep class com.huahao.authenticator.models.** { *; }
+# 保留应用入口和数据模型
+-keep class org.huahao.totp.** { *; }
 
-# 保留 Compose 相关（最小化）
--keep class androidx.compose.runtime.** { *; }
--keep class androidx.compose.ui.** { *; }
--keep class androidx.compose.material3.** { *; }
--keep class androidx.lifecycle.** { *; }
--dontwarn androidx.compose.**
--dontwarn androidx.lifecycle.**
+# 保留 Compose 关键类（R8 已自动处理大部分）
+-keepnames class * implements androidx.compose.runtime.Composable
+-keepnames class * implements androidx.compose.ui.tooling.preview.Preview
+-keepattributes Signature
+-keepattributes *Annotation*
 
-# 保留 ML Kit 条码扫描
+# 保留 ML Kit 条码扫描（使用反射和原生模型加载）
 -keep class com.google.mlkit.** { *; }
 -dontwarn com.google.mlkit.**
 
@@ -27,22 +25,10 @@
 -keep class androidx.datastore.** { *; }
 -dontwarn androidx.datastore.**
 
-# 保留 Kotlinx 序列化
--keep class kotlinx.serialization.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
--dontwarn kotlinx.serialization.**
-
-# 更激进的优化
--optimizationpasses 5
--optimizations !code/simplification/arithmetic,!field/*,!class/merging/*,code/allocation/variable
--allowaccessmodification
--mergeinterfacesaggressively
--overloadaggressively
--keepattributes *Annotation*
--keepattributes Signature
--keepattributes SourceFile
--keepattributes LineNumberTable
+# Kotlin 序列化
+-keepattributes kotlinx.serialization.SerializationConstructorMarker
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class kotlinx.serialization.json.** { kotlinx.serialization.KSerializer serializer(...); }
 
 # 移除调试信息
 -assumenosideeffects class android.util.Log {
