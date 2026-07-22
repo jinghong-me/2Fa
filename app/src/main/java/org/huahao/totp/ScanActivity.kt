@@ -334,39 +334,16 @@ fun ScanScreen(
                 modifier = Modifier.fillMaxSize()
             )
 
-            Column(
-                modifier = Modifier.align(Alignment.Center)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(280.dp)
-                        .border(
-                            width = 3.dp,
-                            color = Color.White,
-                            shape = RoundedCornerShape(24.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val cornerShapes = listOf(
-                        Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
-                        Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
-                        Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
-                        Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(280.dp)
+                    .border(
+                        width = 3.dp,
+                        color = Color.White,
+                        shape = RoundedCornerShape(24.dp)
                     )
-                    cornerShapes.forEach { (alignment, shape) ->
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .border(
-                                    width = 4.dp,
-                                    color = Color.White,
-                                    shape = shape
-                                )
-                                .align(alignment)
-                        )
-                    }
-                }
-            }
+            )
 
             Box(
                 modifier = Modifier
