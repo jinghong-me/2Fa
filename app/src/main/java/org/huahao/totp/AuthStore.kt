@@ -41,6 +41,14 @@ class AuthStore(private val dataStore: DataStore<Preferences>) {
         saveAuthEntries(entries.filter { entry -> entry.id != id })
     }
 
+    suspend fun updateAuthEntry(updated: AuthEntry): Boolean {
+        val entries = authEntries.first()
+        val index = entries.indexOfFirst { it.id == updated.id }
+        if (index == -1) return false
+        saveAuthEntries(entries.toMutableList().apply { set(index, updated) })
+        return true
+    }
+
     suspend fun hasDuplicateSecret(secret: String): Boolean {
         val entries = authEntries.first()
         return entries.any { it.secret == secret }
