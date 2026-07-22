@@ -18,6 +18,7 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -301,6 +302,7 @@ fun ScanScreen(
     @Suppress("UNUSED_PARAMETER") onRequestCameraPermission: () -> Unit
 ) {
     Scaffold(
+        modifier = Modifier.background(Color.Black),
         topBar = {
             TopAppBar(
                 title = {
@@ -315,63 +317,60 @@ fun ScanScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
+                    containerColor = Color.Black.copy(alpha = 0.5f)
                 )
             )
         }
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .padding(it)
                 .fillMaxSize()
         ) {
-            Box(
-                modifier = Modifier.weight(1f)
-            ) {
-                AndroidView(
-                    factory = {
-                        previewView
-                    },
-                    modifier = Modifier.fillMaxSize()
-                )
+            AndroidView(
+                factory = {
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize()
+            )
 
-                Column(
-                    modifier = Modifier.align(Alignment.Center)
+            Column(
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(280.dp)
+                        .border(
+                            width = 3.dp,
+                            color = Color.White,
+                            shape = RoundedCornerShape(24.dp)
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(280.dp)
-                            .border(
-                                width = 3.dp,
-                                color = Color.White,
-                                shape = RoundedCornerShape(24.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val cornerShapes = listOf(
-                            Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
-                            Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
-                            Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
-                            Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
+                    val cornerShapes = listOf(
+                        Alignment.TopStart to RoundedCornerShape(topStart = 16.dp),
+                        Alignment.TopEnd to RoundedCornerShape(topEnd = 16.dp),
+                        Alignment.BottomStart to RoundedCornerShape(bottomStart = 16.dp),
+                        Alignment.BottomEnd to RoundedCornerShape(bottomEnd = 16.dp)
+                    )
+                    cornerShapes.forEach { (alignment, shape) ->
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .border(
+                                    width = 4.dp,
+                                    color = Color.White,
+                                    shape = shape
+                                )
+                                .align(alignment)
                         )
-                        cornerShapes.forEach { (alignment, shape) ->
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .border(
-                                        width = 4.dp,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        shape = shape
-                                    )
-                                    .align(alignment)
-                            )
-                        }
                     }
                 }
             }
 
             Box(
                 modifier = Modifier
+                    .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .padding(32.dp),
                 contentAlignment = Alignment.Center
@@ -382,13 +381,13 @@ fun ScanScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = Color.White
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "系统将自动识别",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        color = Color.White.copy(alpha = 0.8f),
                         textAlign = TextAlign.Center
                     )
                 }
